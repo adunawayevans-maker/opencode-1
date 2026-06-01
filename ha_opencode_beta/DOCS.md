@@ -14,6 +14,10 @@ OpenCode mounts `/addons` and `/addon_configs` for Home Assistant add-on develop
 
 Treat `/addon_configs` as sensitive because it may contain configuration data for other add-ons.
 
+## Resource Usage
+
+OpenCode snapshots are disabled by default in this add-on to reduce memory and disk pressure on Home Assistant systems. File watching also ignores noisy internal paths such as `.storage/`, `.cloud/`, caches, logs, and the Home Assistant database. You can override these defaults with **Custom OpenCode Configuration (JSON)** if you need OpenCode's built-in snapshot/undo behavior.
+
 ## Zigbee2MQTT URL
 
 If you configure `z2m_url` for zigporter commands, use a full URL such as `http://homeassistant.local:8099`. Host/IP-only values are accepted and treated as `http://`.

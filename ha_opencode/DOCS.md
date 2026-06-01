@@ -44,6 +44,10 @@ Configure the app from the **Configuration** tab in the app page.
 | **Environment Variables** | `[]` | Define custom environment variables that are available to OpenCode and the terminal shell. Each entry has a `name` and `value`. Useful for provider credentials or configuration that must be set as environment variables (e.g. `AZURE_RESOURCE_NAME`, `OPENAI_API_KEY`). Changes take effect after restarting the add-on. Critical system variables (`HOME`, `PATH`, `SUPERVISOR_TOKEN`, etc.) cannot be overridden. |
 | **Custom OpenCode Configuration (JSON)** | `""` | Paste a JSON object to customize OpenCode's own configuration (providers, keybindings, etc.). This is merged with the add-on's built-in config. Leave empty for defaults. See [OpenCode config docs](https://opencode.ai/docs/config) for the full schema. |
 
+### Resource Usage
+
+OpenCode snapshots are disabled by default in this add-on to reduce memory and disk pressure on Home Assistant systems. File watching also ignores noisy internal paths such as `.storage/`, `.cloud/`, caches, logs, and the Home Assistant database. You can override these defaults with **Custom OpenCode Configuration (JSON)** if you need OpenCode's built-in snapshot/undo behavior.
+
 #### Environment Variables Example
 
 To set environment variables for an Azure OpenAI provider, add entries in the Configuration tab:
@@ -971,7 +975,13 @@ Your OpenCode sessions and API credentials are stored in `/data/` within the app
 
 ### OpenCode won't start
 
-Check if you have enough memory. OpenCode requires at least 256MB of RAM, 512MB recommended.
+Check if you have enough memory. If the terminal shows `Killed`, check host logs for the Linux OOM killer:
+
+```bash
+ha-logs host 300 | grep -i "out of memory\|oom\|opencode"
+```
+
+OpenCode can use significant memory on larger Home Assistant installations. This add-on disables OpenCode snapshots by default and ignores noisy internal paths to reduce memory pressure, but systems with limited RAM or full swap may still need more available memory.
 
 ### Can't connect to AI provider
 
