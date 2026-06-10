@@ -1,9 +1,9 @@
 ---
 name: "OpenCode"
 description: "AI coding agent for editing Home Assistant configuration with deep MCP integration and LSP support"
-version: "2.0.0"
+version: "2.1.0"
 slug: "ha_opencode"
-image: "ghcr.io/magnusoverli/ha_opencode/{arch}"
+image: "ghcr.io/magnusoverli/ha_opencode"
 url: "https://github.com/magnusoverli/opencode"
 arch:
   - aarch64
