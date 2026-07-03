@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 2.3.0b6
+
+- **Fix OpenChamber persistent install bypassing ingress patches** — always launch the bundled image OpenChamber binary patched at build time, even when the add-on's `latest` OpenCode update policy puts `/data/.npm-global/bin` first on `PATH`. This prevents an older persistent `@openchamber/web` install from serving root `/assets/...` URLs under Home Assistant ingress.
+- **Harden OpenChamber ingress cache cleanup** — rewrite root asset URLs in proxied HTML/CSS/JS responses, serve a no-op unregistering service worker under ingress, and send no-store headers for rewritten OpenChamber app resources.
+
 ## 2.3.0b5
 
 - **Fix remaining OpenChamber ingress API and font routing** — patch CSS font URLs so IBM Plex fonts load through Home Assistant ingress, and add a runtime fetch guard that keeps root `/api`, `/auth`, and `/health` requests under `/api/hassio_ingress/...` before OpenChamber initializes.

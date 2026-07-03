@@ -78,6 +78,44 @@ function escapeHtmlAttribute(value) {
     .replace(/>/g, "&gt;");
 }
 
+function noStoreHeaders(extra = {}) {
+  return {
+    ...extra,
+    "cache-control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+    pragma: "no-cache",
+    expires: "0",
+  };
+}
+
+function transformRootAssetUrls(content, ingressPath) {
+  const assetPath = ingressPath ? `${ingressPath}/assets/` : "assets/";
+  return content
+    .replace(/(["'`])\/assets\//g, `$1${assetPath}`)
+    .replace(/url\((["]?)\/assets\//g, `url($1${assetPath}`)
+    .replace(/url\((\')\/assets\//g, `url($1${assetPath}`)
+    .replace(/assetsURL=function\((\w+)\)\{return"\/"\+\1\}/g, "assetsURL=function($1){return $1}");
+}
+
+function serviceWorkerResetScript() {
+  return `self.addEventListener("install", (event) => {\n`
+    + `  self.skipWaiting();\n`
+    + `});\n`
+    + `self.addEventListener("activate", (event) => {\n`
+    + `  event.waitUntil((async () => {\n`
+    + `    try {\n`
+    + `      for (const key of await caches.keys()) {\n`
+    + `        if (/openchamber|workbox|vite/i.test(key)) await caches.delete(key);\n`
+    + `      }\n`
+    + `    } catch {}\n`
+    + `    try { await self.registration.unregister(); } catch {}\n`
+    + `    try {\n`
+    + `      const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });\n`
+    + `      for (const client of clients) client.navigate(client.url);\n`
+    + `    } catch {}\n`
+    + `  })());\n`
+    + `});\n`;
+}
+
 function ingressRuntimeScript(ingressPath) {
   const basePath = ingressPath || "";
 
@@ -100,6 +138,22 @@ function ingressRuntimeScript(ingressPath) {
     + `  window.__OPENCHAMBER_GET_PWA_INSTALL_NAME__ ||= () => "OpenChamber";\n`
     + `  window.__OPENCHAMBER_SET_PWA_INSTALL_NAME__ ||= (value) => value || "OpenChamber";\n`
     + `  window.__OPENCHAMBER_SET_PWA_ORIENTATION__ ||= (value) => value || "system";\n`
+    + `  if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {\n`
+    + `    navigator.serviceWorker.getRegistrations().then((registrations) => {\n`
+    + `      for (const registration of registrations) {\n`
+    + `        const urls = [registration.scope, registration.active?.scriptURL, registration.waiting?.scriptURL, registration.installing?.scriptURL].filter(Boolean);\n`
+    + `        const shouldRemove = urls.some((value) => {\n`
+    + `          try {\n`
+    + `            const url = new URL(value, window.location.href);\n`
+    + `            return url.pathname === "/sw.js" || (basePath && (url.pathname === basePath || url.pathname.startsWith(basePath + "/"))) || url.pathname.includes("/api/hassio_ingress/");\n`
+    + `          } catch {\n`
+    + `            return false;\n`
+    + `          }\n`
+    + `        });\n`
+    + `        if (shouldRemove) registration.unregister().catch(() => {});\n`
+    + `      }\n`
+    + `    }).catch(() => {});\n`
+    + `  }\n`
     + `  if (basePath && typeof window.fetch === "function" && !window.__OPENCHAMBER_INGRESS_FETCH_PATCHED__) {\n`
     + `    window.__OPENCHAMBER_INGRESS_FETCH_PATCHED__ = true;\n`
     + `    const originalFetch = window.fetch.bind(window);\n`
@@ -136,6 +190,11 @@ function transformHtml(html, ingressPath) {
     ""
   );
 
+  transformed = transformed.replace(
+    "const baseUrl = location.origin;",
+    "const ingressBaseMatch = location.pathname.match(/^(\\/api\\/hassio_ingress\\/[^/]+)/);\n      const baseUrl = location.origin + (ingressBaseMatch ? ingressBaseMatch[1] : '');"
+  );
+
   if (ingressPath && !transformed.includes("data-ha-ingress-base")) {
     transformed = transformed.replace(
       /<head([^>]*)>/i,
@@ -150,13 +209,24 @@ function transformHtml(html, ingressPath) {
     );
   }
 
-  return transformed.replace(/\b(href|src)="\/(assets\/[^"#?]+(?:[?#][^"]*)?)"/g, (_match, attr, path) => {
+  transformed = transformed.replace(/\b(href|src)="\/(assets\/[^"#?]+(?:[?#][^"]*)?)"/g, (_match, attr, path) => {
     return `${attr}="${ingressPath ? `${ingressPath}/` : ""}${path}"`;
   }).replace(/\bhref="\/(favicon[^"#?]*(?:[?#][^"]*)?)"/g, (_match, path) => {
     return `href="${ingressPath ? `${ingressPath}/` : ""}${path}"`;
   }).replace(/\bhref="\/(apple-touch-icon[^"#?]*(?:[?#][^"]*)?)"/g, (_match, path) => {
     return `href="${ingressPath ? `${ingressPath}/` : ""}${path}"`;
   });
+
+  return transformRootAssetUrls(transformed, ingressPath);
+}
+
+function transformJavaScript(content, ingressPath) {
+  return transformRootAssetUrls(content, ingressPath)
+    .replace(/if\("serviceWorker"in navigator\)\{/g, 'if(false&&"serviceWorker"in navigator){');
+}
+
+function transformCss(content, ingressPath) {
+  return transformRootAssetUrls(content, ingressPath);
 }
 
 function decodeBody(buffer, contentEncoding) {
@@ -180,11 +250,19 @@ function proxyRequest(req, res) {
   const upstreamPath = stripIngressPath(req.url || "/", ingressPath);
 
   if (upstreamPath.split("?", 1)[0] === "/__openchamber_ingress_runtime.js") {
-    res.writeHead(200, {
+    res.writeHead(200, noStoreHeaders({
       "content-type": "application/javascript; charset=utf-8",
-      "cache-control": "no-store",
-    });
+    }));
     res.end(ingressRuntimeScript(ingressPath));
+    return;
+  }
+
+  if (upstreamPath.split("?", 1)[0] === "/sw.js") {
+    res.writeHead(200, noStoreHeaders({
+      "content-type": "application/javascript; charset=utf-8",
+      "service-worker-allowed": ingressPath ? `${ingressPath}/` : "/",
+    }));
+    res.end(serviceWorkerResetScript());
     return;
   }
 
@@ -210,7 +288,10 @@ function proxyRequest(req, res) {
     }
 
     const contentType = String(upstreamRes.headers["content-type"] || "");
-    if (!contentType.includes("text/html")) {
+    const isHtml = contentType.includes("text/html");
+    const isJavaScript = /(?:application|text)\/javascript|\bmodule\b/.test(contentType);
+    const isCss = contentType.includes("text/css");
+    if (!isHtml && !isJavaScript && !isCss) {
       res.writeHead(upstreamRes.statusCode || 502, responseHeaders);
       upstreamRes.pipe(res);
       return;
@@ -220,10 +301,16 @@ function proxyRequest(req, res) {
     upstreamRes.on("data", (chunk) => chunks.push(chunk));
     upstreamRes.on("end", () => {
       const decoded = decodeBody(Buffer.concat(chunks), responseHeaders["content-encoding"]);
-      const body = transformHtml(decoded.toString("utf8"), ingressPath);
+      const text = decoded.toString("utf8");
+      const body = isHtml
+        ? transformHtml(text, ingressPath)
+        : isCss
+          ? transformCss(text, ingressPath)
+          : transformJavaScript(text, ingressPath);
       delete responseHeaders["content-length"];
       delete responseHeaders["content-encoding"];
       delete responseHeaders.etag;
+      Object.assign(responseHeaders, noStoreHeaders());
       res.writeHead(upstreamRes.statusCode || 200, responseHeaders);
       res.end(body);
     });

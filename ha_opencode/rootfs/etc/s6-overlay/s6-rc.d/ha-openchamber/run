@@ -58,9 +58,14 @@ bashio::log.info "=============================================="
 bashio::log.info "Starting OpenChamber on 127.0.0.1:${OPENCHAMBER_INTERNAL_PORT}"
 bashio::log.info "Starting ingress proxy on 0.0.0.0:${OPENCHAMBER_INGRESS_PORT}"
 
+# Always launch the bundled OpenChamber package patched during image build.
+# Keep PATH unchanged so OpenChamber can still find the persistent latest
+# OpenCode binary when OPENCODE_UPDATE_POLICY=latest.
+OPENCHAMBER_BIN="/usr/local/bin/openchamber"
+
 cd /homeassistant
 
-openchamber serve \
+"${OPENCHAMBER_BIN}" serve \
     --foreground \
     --port "${OPENCHAMBER_INTERNAL_PORT}" \
     --host 127.0.0.1 &
