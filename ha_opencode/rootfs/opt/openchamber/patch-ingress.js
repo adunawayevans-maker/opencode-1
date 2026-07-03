@@ -42,21 +42,8 @@ if (!fs.existsSync(assetsDir)) {
   fail(`assets directory not found at ${assetsDir}`);
 }
 
-const ingressRuntimeScript = `
-    <script data-ha-ingress-runtime>
-      (function() {
-        var match = window.location.pathname.match(/^(\\/api\\/hassio_ingress\\/[^/]+)/);
-        if (!match) return;
-        var base = window.location.origin + match[1];
-        window.__OPENCHAMBER_API_BASE_URL__ = base;
-        window.__OPENCHAMBER_LOCAL_ORIGIN__ = window.location.origin;
-      })();
-    </script>`;
-
 let html = fs.readFileSync(indexPath, "utf8");
-if (!html.includes("data-ha-ingress-runtime")) {
-  html = html.replace(/\s*<script type="module"/, `${ingressRuntimeScript}\n    <script type="module"`);
-}
+html = html.replace(/\s*<script\b[^>]*\bdata-ha-ingress-runtime\b[^>]*>[\s\S]*?<\/script>/g, "");
 
 // Make initial static assets relative to the current iframe URL. The browser
 // then requests them under /api/hassio_ingress/<token>/..., which Supervisor

@@ -70,9 +70,50 @@ function transformLocationHeader(value, ingressPath) {
   return `${ingressPath}${value}`;
 }
 
+function escapeHtmlAttribute(value) {
+  return value.replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function ingressRuntimeScript(ingressPath) {
+  const basePath = ingressPath || "";
+
+  return `(() => {\n`
+    + `  const configuredBasePath = ${JSON.stringify(basePath)};\n`
+    + `  const match = window.location.pathname.match(/^(\\/api\\/hassio_ingress\\/[^/]+)/);\n`
+    + `  const basePath = configuredBasePath || (match ? match[1] : "");\n`
+    + `  const absoluteBase = basePath ? window.location.origin + basePath : window.location.origin;\n`
+    + `  window.__OPENCHAMBER_API_BASE_URL__ = absoluteBase;\n`
+    + `  window.__OPENCHAMBER_LOCAL_ORIGIN__ = window.location.origin;\n`
+    + `  window.__OPENCHAMBER_INGRESS_BASE_PATH__ = basePath;\n`
+    + `})();\n`;
+}
+
 function transformHtml(html, ingressPath) {
   if (!ingressPath) return html;
-  return html.replace(/\b(href|src)="\/(assets\/[^"#?]+(?:[?#][^"]*)?)"/g, `$1="${ingressPath}/$2"`)
+  const baseHref = `${ingressPath}/`;
+  let transformed = html.replace(
+    /\s*<script\b[^>]*\bdata-ha-ingress-runtime\b[^>]*>[\s\S]*?<\/script>/g,
+    ""
+  );
+
+  if (!transformed.includes("data-ha-ingress-base")) {
+    transformed = transformed.replace(
+      /<head([^>]*)>/i,
+      `<head$1>\n    <base data-ha-ingress-base href="${escapeHtmlAttribute(baseHref)}">`
+    );
+  }
+
+  if (!transformed.includes("data-ha-ingress-runtime")) {
+    transformed = transformed.replace(
+      /\s*<script type="module"/,
+      `\n    <script data-ha-ingress-runtime src="${escapeHtmlAttribute(baseHref)}__openchamber_ingress_runtime.js"></script>\n    <script type="module"`
+    );
+  }
+
+  return transformed.replace(/\b(href|src)="\/(assets\/[^"#?]+(?:[?#][^"]*)?)"/g, `$1="${ingressPath}/$2"`)
     .replace(/\bhref="\/(favicon[^"#?]*(?:[?#][^"]*)?)"/g, `href="${ingressPath}/$1"`)
     .replace(/\bhref="\/(apple-touch-icon[^"#?]*(?:[?#][^"]*)?)"/g, `href="${ingressPath}/$1"`);
 }
@@ -87,6 +128,16 @@ function proxyRequest(req, res) {
 
   const ingressPath = ingressPathFromRequest(req);
   const upstreamPath = stripIngressPath(req.url || "/", ingressPath);
+
+  if (upstreamPath.split("?", 1)[0] === "/__openchamber_ingress_runtime.js") {
+    res.writeHead(200, {
+      "content-type": "application/javascript; charset=utf-8",
+      "cache-control": "no-store",
+    });
+    res.end(ingressRuntimeScript(ingressPath));
+    return;
+  }
+
   const headers = { ...req.headers };
   headers.host = `${UPSTREAM_HOST}:${UPSTREAM_PORT}`;
   headers["x-forwarded-host"] = req.headers["x-forwarded-host"] || req.headers.host || "";

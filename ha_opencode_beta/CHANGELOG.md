@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 2.3.0b1
+
+- **Fix OpenChamber ingress blank page** — serve the Home Assistant ingress runtime as an external same-origin script instead of injecting inline JavaScript, add an ingress-aware `<base>` tag at proxy time, and keep OpenChamber asset/API paths under `/api/hassio_ingress/...` for CSP-compatible loading.
+
 ## 2.3.0b0
 
 - **Experimental OpenChamber interface mode** — added a beta-only `interface_mode` option. The default `terminal` mode keeps the existing ttyd/tmux sidebar terminal unchanged; `openchamber` starts the pinned `@openchamber/web` UI behind Home Assistant Ingress.
