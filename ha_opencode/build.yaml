@@ -8,7 +8,7 @@ build_from:
 args:
   # Pin versions for reproducible builds (use 'latest' for auto-updates)
   OPENCODE_VERSION: "latest"
-  OPENCHAMBER_VERSION: "1.13.9"
+  OPENCHAMBER_VERSION: "1.14.0"
   PPQ_PROXY_VERSION: "0.1.0"
   TSX_VERSION: "4.20.6"
   TTYD_VERSION: "1.7.7"

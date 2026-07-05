@@ -1,6 +1,10 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## 2.3.2
+
+- **OpenChamber updated to 1.14.0** — bumped the pinned `@openchamber/web` package and promoted the Home Assistant ingress patch updates validated in beta 2.3.2b0-2.3.2b1. The ingress patcher now also handles OpenChamber 1.14.0's newer Vite modulepreload helper, preventing dynamic asset and stylesheet requests from escaping to root `/assets/...` under Home Assistant Ingress.
+
 ## 2.3.1
 
 - **Configuration UI polish** — options in the Configuration tab are now grouped and ordered by how you use them: interface mode first, then terminal appearance, Home Assistant integration, OpenCode runtime, Zigbee2MQTT/serial devices, PPQ private mode, LAN server, and advanced options last. Labels follow Home Assistant's sentence-case convention with consistent naming for toggles, and descriptions use one consistent style for quoting and punctuation. The previously undocumented Home Assistant access token option now has a proper entry in the documentation. No option keys or default values changed — existing configurations are unaffected.
