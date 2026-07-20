@@ -1,7 +1,7 @@
 ---
 name: "OpenCode Beta"
 description: "Beta channel for OpenCode - AI coding agent for Home Assistant. May contain experimental features."
-version: "2.3.5b0"
+version: "2.3.5b1"
 slug: "ha_opencode_beta"
 image: "ghcr.io/magnusoverli/ha_opencode_beta"
 url: "https://github.com/magnusoverli/opencode"
@@ -68,6 +68,10 @@ options:
   native_ha_mcp_enabled: false
   native_ha_mcp_api_id: "assist"
   lsp_enabled: true
+  # Security: deny the AI read access to secret files (secrets.yaml, .storage,
+  # .cloud, ssl, *.key, *.pem) so their contents cannot reach the model. Set to
+  # false to restore fully unrestricted file access (the previous behavior).
+  restrict_sensitive_files: true
   # Screenshot tool: visual verification of dashboards and UI changes.
   # Requires the access token below to authenticate with the HA frontend.
   screenshot_enabled: false
@@ -131,6 +135,7 @@ schema:
   native_ha_mcp_enabled: bool
   native_ha_mcp_api_id: str?
   lsp_enabled: bool
+  restrict_sensitive_files: bool
   screenshot_enabled: bool
   access_token: password
 

@@ -28,6 +28,10 @@ configuration:
     name: "Enable LSP integration"
     description: "Enable Language Server Protocol (LSP) support for intelligent code assistance. Provides real-time diagnostics, auto-completion, and validation for Home Assistant YAML configuration files."
 
+  restrict_sensitive_files:
+    name: "Restrict access to sensitive files"
+    description: "When enabled (default), the AI is denied read access to secret and credential files in your configuration — secrets.yaml, the .storage and .cloud directories, the ssl folder, and any .key or .pem files — so their contents cannot be sent to the AI model. Everything else stays readable. Turn this off to restore fully unrestricted file access. Note: this protects OpenCode's file read/edit tools; it does not restrict shell commands."
+
   screenshot_enabled:
     name: "Enable screenshot tool"
     description: "Enable visual verification of dashboards and UI pages. When enabled, the AI can take screenshots of Home Assistant pages using a headless browser to verify the result of dashboard changes. Requires a Home Assistant access token (below). Each screenshot takes approximately 5-10 seconds."

@@ -24,6 +24,7 @@ LSP_ENABLED=$(bashio::config 'lsp_enabled' || echo "true")
 SCREENSHOT_ENABLED=$(bashio::config 'screenshot_enabled' || echo "false")
 ADDON_ACCESS_ENABLED=$(bashio::config 'addon_access_enabled' || echo "false")
 PPQ_PRIVATE_ENABLED=$(bashio::config 'ppq_private_enabled' || echo "false")
+RESTRICT_SENSITIVE_FILES=$(bashio::config 'restrict_sensitive_files' 2>/dev/null || echo "true")
 
 ACCESS_TOKEN=$(bashio::config 'access_token' || echo "")
 PPQ_API_KEY=$(bashio::config 'ppq_api_key' || echo "")
@@ -41,7 +42,7 @@ case "${OPENCODE_UPDATE_POLICY}" in
         ;;
 esac
 
-bashio::log.info "Configuration: INTERFACE_MODE=${INTERFACE_MODE} MCP=${MCP_ENABLED} NATIVE_HA_MCP=${NATIVE_HA_MCP_ENABLED} NATIVE_HA_MCP_API_ID=${NATIVE_HA_MCP_API_ID} LSP=${LSP_ENABLED} SCREENSHOT=${SCREENSHOT_ENABLED} PPQ_PRIVATE=${PPQ_PRIVATE_ENABLED} ADDON_ACCESS=${ADDON_ACCESS_ENABLED} CPU_MODE=${CPU_MODE_CONFIG} OPENCODE_UPDATE_POLICY=${OPENCODE_UPDATE_POLICY}"
+bashio::log.info "Configuration: INTERFACE_MODE=${INTERFACE_MODE} MCP=${MCP_ENABLED} NATIVE_HA_MCP=${NATIVE_HA_MCP_ENABLED} NATIVE_HA_MCP_API_ID=${NATIVE_HA_MCP_API_ID} LSP=${LSP_ENABLED} SCREENSHOT=${SCREENSHOT_ENABLED} PPQ_PRIVATE=${PPQ_PRIVATE_ENABLED} ADDON_ACCESS=${ADDON_ACCESS_ENABLED} CPU_MODE=${CPU_MODE_CONFIG} OPENCODE_UPDATE_POLICY=${OPENCODE_UPDATE_POLICY} RESTRICT_SENSITIVE_FILES=${RESTRICT_SENSITIVE_FILES}"
 
 # Set up persistent HOME and npm global prefix for OpenCode runtime updates.
 export HOME="/data"
@@ -612,14 +613,26 @@ MCP_BOOL=$([ "${MCP_ENABLED}" = "true" ] && echo "true" || echo "false")
 NATIVE_HA_MCP_BOOL=$([ "${NATIVE_HA_MCP_ENABLED}" = "true" ] && echo "true" || echo "false")
 LSP_DISABLED=$([ "${LSP_ENABLED}" = "true" ] && echo "false" || echo "true")
 PPQ_PROVIDER_ENABLED=$([ "${PPQ_PRIVATE_ENABLED}" = "true" ] && [ "${PPQ_API_KEY_CONFIGURED}" = "true" ] && echo "true" || echo "false")
+RESTRICT_BOOL=$([ "${RESTRICT_SENSITIVE_FILES}" = "true" ] && echo "true" || echo "false")
 
-jq --arg native_ha_mcp_api_id "${NATIVE_HA_MCP_API_ID}" --argjson mcp "${MCP_BOOL}" --argjson native_ha_mcp "${NATIVE_HA_MCP_BOOL}" --argjson lsp_disabled "${LSP_DISABLED}" --argjson ppq "${PPQ_PROVIDER_ENABLED}" '
+jq --arg native_ha_mcp_api_id "${NATIVE_HA_MCP_API_ID}" --argjson mcp "${MCP_BOOL}" --argjson native_ha_mcp "${NATIVE_HA_MCP_BOOL}" --argjson lsp_disabled "${LSP_DISABLED}" --argjson ppq "${PPQ_PROVIDER_ENABLED}" --argjson restrict "${RESTRICT_BOOL}" '
     .mcp.homeassistant.enabled = $mcp |
     .mcp.homeassistant.environment.HA_NATIVE_MCP_API_ID = $native_ha_mcp_api_id |
     .mcp.homeassistant_native.enabled = ($mcp and $native_ha_mcp) |
     .mcp.homeassistant_native.command = ["node", "/opt/ha-mcp-server/ha-native-mcp-proxy.js", $native_ha_mcp_api_id] |
     .mcp.homeassistant_native.environment.HA_NATIVE_MCP_API_ID = $native_ha_mcp_api_id |
     if $lsp_disabled then .lsp["ha-yaml"].disabled = true else del(.lsp["ha-yaml"].disabled) end |
+    if $restrict then
+        .permission.read = {
+            "*": "allow",
+            "*secrets.yaml": "deny",
+            "*.storage/*": "deny",
+            "*.cloud/*": "deny",
+            "*ssl/*": "deny",
+            "*.key": "deny",
+            "*.pem": "deny"
+        }
+    else del(.permission.read) end |
     if $ppq then
         .provider = (.provider // {}) |
         .provider["ppq-private"] = {
@@ -633,23 +646,28 @@ jq --arg native_ha_mcp_api_id "${NATIVE_HA_MCP_API_ID}" --argjson mcp "${MCP_BOO
             },
             "models": {
                 "private/kimi-k2-5": {
+                    "id": "private/kimi-k2-5",
                     "name": "Kimi K2.5 (Private)",
                     "limit": { "context": 262144, "output": 8192 }
                 },
                 "private/deepseek-r1-0528": {
+                    "id": "private/deepseek-r1-0528",
                     "name": "DeepSeek R1 (Private)",
                     "reasoning": true,
                     "limit": { "context": 131072, "output": 8192 }
                 },
                 "private/gpt-oss-120b": {
+                    "id": "private/gpt-oss-120b",
                     "name": "GPT-OSS 120B (Private)",
                     "limit": { "context": 131072, "output": 8192 }
                 },
                 "private/llama3-3-70b": {
+                    "id": "private/llama3-3-70b",
                     "name": "Llama 3.3 70B (Private)",
                     "limit": { "context": 131072, "output": 8192 }
                 },
                 "private/qwen3-vl-30b": {
+                    "id": "private/qwen3-vl-30b",
                     "name": "Qwen3-VL 30B (Private)",
                     "attachment": true,
                     "limit": { "context": 262144, "output": 8192 }

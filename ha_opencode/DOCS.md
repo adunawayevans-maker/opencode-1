@@ -77,8 +77,24 @@ If OpenChamber misbehaves (for example after an update), switch **Interface mode
 |--------|---------|-------------|
 | **Enable MCP integration** | `true` | Enable the Model Context Protocol (MCP) server for deep Home Assistant integration. Includes 37 tools, 14 resources, 6 guided prompts, and an intelligence layer for anomaly detection, config validation, and automation suggestions. |
 | **Enable LSP integration** | `true` | Enable the Language Server Protocol (LSP) server for intelligent YAML editing. Provides entity/service autocomplete, hover documentation, diagnostics for unknown entities, and go-to-definition for !include tags. |
+| **Restrict access to sensitive files** | `true` | Deny the AI read access to secret/credential files (`secrets.yaml`, `.storage/`, `.cloud/`, `ssl/`, `*.key`, `*.pem`) so their contents cannot reach the model. Everything else stays readable. Set to `false` to restore fully unrestricted file access. See [Sensitive File Protection](#sensitive-file-protection). |
 | **Enable screenshot tool** | `false` | Enable visual verification of dashboards and UI pages. Uses headless Chromium to capture screenshots that vision-capable AI models can analyze. Requires the access token below. See [Visual Verification](#visual-verification-screenshots). |
 | **Home Assistant access token** | `""` | A long-lived access token for direct communication with Home Assistant Core. Required for ESPHome integration and the screenshot tool. Create one in the Home Assistant UI under Profile → Long-lived access tokens. |
+
+### Sensitive File Protection
+
+By default (**Restrict access to sensitive files** = `true`), the add-on adds an OpenCode `permission.read` rule that blocks the AI's file-**read** tool from opening files that typically hold secrets or credentials, so their contents can't be pulled into the model's context:
+
+- `secrets.yaml` (and any path ending in `secrets.yaml`)
+- the `.storage/` directory (auth/refresh tokens, cloud, application credentials)
+- the `.cloud/` directory (Nabu Casa cloud)
+- the `ssl/` directory, and any `*.key` / `*.pem` files
+
+Everything else stays fully readable, and this doesn't change how the agent edits normal configuration that *references* secrets via `!secret` — it never needs the secret's value to do that. The Home Assistant MCP tools are unaffected; they read live state through the API, not these files.
+
+**To restore the previous, fully-permissive behavior,** set **Restrict access to sensitive files** to `false` and restart the add-on. You can also fine-tune individual paths — re-allow one, add more denials, or extend the same protection to the edit tool — via **Custom OpenCode configuration** using OpenCode's [permission rules](https://opencode.ai/docs/permissions/).
+
+**Scope/limitation:** this guards OpenCode's structured file-read tool, which is the common path for accidental exposure. It does **not** restrict shell commands, so an explicit `cat secrets.yaml` in the terminal can still read the file. Treat it as a strong guardrail against inadvertent leaks, not a hard sandbox.
 
 ### OpenCode Runtime
 

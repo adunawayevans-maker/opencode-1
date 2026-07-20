@@ -26,12 +26,21 @@ at `/usr/share/doc/ha-opencode/NOTICE` and in this repository's
 - **Web terminal clipboard fixes**: Copying inside OpenCode now reaches the browser clipboard, plain `Ctrl+V` paste works, and macOS users can use `Option+drag` to select text while full-screen terminal apps capture the mouse.
 - **Touch scrolling**: One-finger vertical drag gestures inside the terminal now scroll full-screen apps such as OpenCode on phones and tablets.
 - **OpenCode update policy**: Use only the image-bundled OpenCode (`bundled`, default, lowest memory use) or keep OpenCode updated to the newest release in the background (`latest`, skipped automatically on low-memory systems).
+- **Sensitive file protection**: New **Restrict access to sensitive files** option (default on) denies the AI read access to `secrets.yaml`, `.storage/`, `.cloud/`, `ssl/`, and `*.key`/`*.pem` files so their contents can't reach the model. Set it to `false` to restore fully unrestricted file access. See [Sensitive File Protection](#sensitive-file-protection).
 
 ## Add-on Folder Access
 
 OpenCode mounts `/addons` and `/addon_configs` for Home Assistant add-on development access. Enable **Add-on Folder Guidance** in the add-on configuration and restart to show these paths in the terminal. This option updates guidance, but the mounts are static add-on metadata and are not a hard filesystem permission boundary.
 
 Treat `/addon_configs` as sensitive because it may contain configuration data for other add-ons.
+
+## Sensitive File Protection
+
+By default (**Restrict access to sensitive files** = `true`), the add-on adds an OpenCode `permission.read` rule that blocks the AI's file-**read** tool from opening secret/credential files — `secrets.yaml` (any path ending in `secrets.yaml`), the `.storage/` and `.cloud/` directories, the `ssl/` directory, and any `*.key`/`*.pem` files — so their contents can't be pulled into the model's context. Everything else stays readable, and the agent can still edit normal config that *references* secrets via `!secret`. The Home Assistant MCP tools are unaffected; they read live state through the API.
+
+**To restore the previous, fully-permissive behavior,** set **Restrict access to sensitive files** to `false` and restart. You can also fine-tune paths via **Custom OpenCode configuration** using OpenCode's [permission rules](https://opencode.ai/docs/permissions/).
+
+**Scope/limitation:** this guards OpenCode's file-read tool (the common accidental-exposure path). It does **not** restrict shell commands, so an explicit `cat secrets.yaml` can still read the file — treat it as a strong guardrail, not a hard sandbox.
 
 ## Resource Usage
 

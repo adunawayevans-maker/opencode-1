@@ -64,6 +64,10 @@ options:
   # Home Assistant integration
   mcp_enabled: true
   lsp_enabled: true
+  # Security: deny the AI read access to secret files (secrets.yaml, .storage,
+  # .cloud, ssl, *.key, *.pem) so their contents cannot reach the model. Set to
+  # false to restore fully unrestricted file access (the previous behavior).
+  restrict_sensitive_files: true
   # Screenshot tool: visual verification of dashboards and UI changes.
   # Requires the access token below to authenticate with the HA frontend.
   screenshot_enabled: false
@@ -120,6 +124,7 @@ schema:
   # Home Assistant integration
   mcp_enabled: bool
   lsp_enabled: bool
+  restrict_sensitive_files: bool
   screenshot_enabled: bool
   access_token: password
 
